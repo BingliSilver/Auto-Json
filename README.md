@@ -1,147 +1,171 @@
 # Auto-Json
 
-[![Twitter Follow](https://img.shields.io/badge/follow-%40JBPlatform-1DA1F2?logo=twitter)](https://twitter.com/JBPlatform)
-[![Developers Forum](https://img.shields.io/badge/JetBrains%20Platform-Join-blue)][jb:forum]
+<p align="center">
+  <img src="src/main/resources/META-INF/pluginIcon@2x.png" width="80" height="80" alt="Auto-Json Logo">
+</p>
 
-## Overview
+Auto-Json 是一个 IntelliJ IDEA JSON 辅助插件。它可以把代码编辑器、运行控制台或终端日志中选中的 JSON 快速格式化到右侧工具窗，也支持在工具窗中直接输入和编辑 JSON。
 
-This repository implements an IntelliJ Platform plugin.
+## 功能
 
-## Demo Functionality
+- 在 IDEA 右侧提供“JSON 序列化”工具窗。
+- 选中代码、运行日志或终端日志后，按 `Alt+K` 格式化到右侧工具窗。
+- 支持普通 JSON Object、Array 以及基础 JSON 值。
+- 支持带外层引号的转义 JSON，例如 `"{\"code\":200}"`。
+- 支持日志中缺少外层引号但仍保留内部转义的 JSON，例如 `{\"code\":200}`。
+- JSON key、value、花括号使用不同语义颜色展示。
+- 自动识别字符串形式的子 JSON，并使用黄色波浪线标记可展开的 value。
+- 光标放在带波浪线的 value 上时，可通过 IDEA“显示意图动作”快捷键选择“将子 JSON 序列化”。
+- 编辑器字体、字号和主题跟随 IDEA 全局编辑器设置。
+- 左侧 gutter 显示行号和折叠标记，嵌套 Object 与 Array 可以分别展开或收起。
+- 输入框右键菜单提供“格式化 JSON”“一键复制”和 `Minify JSON`。
+- 输入框获得焦点时可按 `Ctrl+Z`，逐步撤回输入、格式化、压缩、子 JSON 展开或 `Alt+K` 写入操作。
+- 编辑器上方提供 IDEA 原生风格的 A-Z、Z-A 小图标按钮；悬停可查看功能说明，Array 元素顺序保持不变。
+- 工具窗不再显示顶部操作说明或底部状态提示，无效操作不会覆盖当前结果。
 
-The sample plugin adds a `My Tool Window` tool window with a simple functionality of shuffling a random number.
+## 使用方式
 
-## Plugin structure
+### 从代码或终端格式化
 
-A generated project contains the following content structure:
+1. 在代码编辑器、运行控制台或终端中选中 JSON 文本。
+2. 按下 `Alt+K`。
+3. 插件会自动打开右侧“JSON 序列化”工具窗并显示格式化结果。
 
-```
-.
-├── .run/                   Predefined Run/Debug Configurations
-├── gradle
-│   ├── wrapper/            Gradle Wrapper
-│   ├── libs.versions.toml  Version catalog
-├── src                     Plugin sources
-│   └── main
-│       ├── kotlin/         Kotlin production sources
-│       └── resources/      Plugin resources
-│           ├── META-INF/   Plugin configuration file and logo
-│           └── messages/   Message bundles
-├── .gitignore              Git ignoring rules
-├── build.gradle.kts        Gradle build configuration
-├── gradle.properties       Gradle configuration properties
-├── gradlew                 *nix Gradle Wrapper script
-├── gradlew.bat             Windows Gradle Wrapper script
-├── README.md               This file
-└── settings.gradle.kts     Gradle project settings
-```
+如果快捷键与本地 Keymap 冲突，可以在 IDEA 的 `Settings | Keymap` 中搜索“格式化 JSON 到侧边栏”进行修改。
 
-In addition to the configuration files, the most crucial part is the `src` directory, which contains our implementation and the manifest for our plugin – [plugin.xml][file:plugin.xml].
+### 在工具窗中格式化
 
-> [!NOTE]
-> To use Java in your plugin, create the `/src/main/java` directory.
+1. 打开右侧“JSON 序列化”工具窗。
+2. 在编辑区域粘贴或输入 JSON。
+3. 在输入框中点击右键，选择“格式化 JSON”。
+4. 需要复制完整结果时，在右键菜单中选择“一键复制”。
 
-The plugin logo is placed in `src/main/resources/META-INF/pluginIcon.svg`.
-See [Plugin Logo][docs:logo] for more information and logo requirements.
+右键菜单中的 `Minify JSON` 可以移除缩进和换行，将当前内容转换为单行 JSON。
 
-## Build script
+使用编辑器上方的 A-Z 或 Z-A 小图标按钮，可以递归排序每一层 Object 的同级 key。鼠标移到按钮上会显示对应方向说明；排序后的结果会自动格式化并写回输入框，Array 的元素位置不会被调整。需要恢复排序前内容时可按 `Ctrl+Z`。
 
-The [build.gradle.kts][file:build.gradle.kts] is the core of the project definition.
-It applies three Gradle plugins:
+### 展开字符串子 JSON
 
-| Plugin                             | Description                                                                      |
-|------------------------------------|----------------------------------------------------------------------------------|
-| `org.jetbrains.kotlin.jvm`         | Adds Kotlin support                                                              |
-| `org.jetbrains.changelog`          | Simplifies patching the [CHANGELOG.md][file:CHANGELOG.md] file                   |
-| `org.jetbrains.intellij.platform`  | The [IntelliJ Platform Gradle Plugin][docs:intellij-platform-gradle-plugin-docs] |
+当某个字符串 value 解码后是合法的 JSON Object 或 Array 时，插件会为整个 value 显示黄色波浪线。把光标放入该 value，按 IDEA 的“显示意图动作”快捷键（默认 `Alt+Enter`），再选择“将子 JSON 序列化”，该字符串就会转换为真正的嵌套结构，并自动重新格式化完整 JSON。
 
-The `intellijPlatform` dependencies block selects the IDE to compile against:
+例如：
 
-```kotlin
-intellijIdea("2025.3.5")
+```json
+{
+  "data": {
+    "content": "{\"code\":200,\"message\":\"success\"}"
+  }
+}
 ```
 
-See [Target Versions][docs:target-version] for more information.
+执行后：
 
-The `intellijPlatform` dependencies block also contains a dependency on the platform testing framework:
-
-```kotlin
-testFramework(TestFrameworkType.Platform)
+```json
+{
+  "data": {
+    "content": {
+      "code": 200,
+      "message": "success"
+    }
+  }
+}
 ```
 
-See [Testing][docs:testing] for more information
+### 转义 JSON 示例
 
-## Plugin configuration file
+以下两种输入都可以格式化：
 
-The plugin configuration file is a [plugin.xml][file:plugin.xml] file located in the `src/main/resources/META-INF` directory.
-It provides general information about the plugin, its dependencies, extensions, and listeners.
+```text
+"{\"code\":200,\"message\":\"success\",\"data\":{\"id\":1001,\"name\":\"Tony\",\"roles\":[\"admin\",\"user\"]}}"
 
-You can read more about this file in the [Plugin Configuration File][docs:plugin.xml] section of our documentation.
+{\"code\":200,\"message\":\"success\",\"data\":{\"id\":1001,\"name\":\"Tony\",\"roles\":[\"admin\",\"user\"]}}
+```
 
-### Plugin ID and name
+输出：
 
-Generated plugin ID and name may require adjustment.
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": 1001,
+    "name": "Tony",
+    "roles": [
+      "admin",
+      "user"
+    ]
+  }
+}
+```
 
-These values are generated based on _Group ID_ and _Artifact ID_ provided in the IDE Plugin wizard.
-It is recommended to review `<id>` and `<name>` elements in the plugin.xml file, and adjust them if needed.
+## Object 与集合折叠
 
-Please note that Gradle properties `rootProject.name` and `project.group` don't need to match the `<id>` and `<name>` elements.
-There is no IntelliJ Platform-related reason they should as they serve different functions.
+格式化后的多行 Object 和 Array 会在编辑区域左侧显示折叠标记。Object 折叠后显示为 `{…}`，Array 会显示顶层元素数量，例如 5 个元素折叠后显示为 `[...,5个]`；再次点击即可恢复。嵌套结构或字符串中的逗号不会影响集合数量，字符串 value 中出现的 `{`、`}`、`[` 或 `]` 也不会被误识别为折叠范围。
 
-## Predefined Run/Debug configurations
+## 开发环境
 
-Within the default project structure, there is a `.run` directory provided containing predefined *Run/Debug configurations* that expose corresponding Gradle tasks:
+- JDK 21
+- Gradle Wrapper 9.6.1
+- Kotlin 2.3.20
+- IntelliJ Platform Gradle Plugin 2.18.1
+- 编译基准 IDE：IntelliJ IDEA 2025.3.5（Build `253.33514.17`）
+- 发布兼容范围：IntelliJ IDEA 2025.3.5 至 2026.2.x（包含 2026.2.1 Build `262.9437.185`）
 
-| Configuration name  | Description                                                                                                                                                                         |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Run IDE with Plugin | Runs [`:runIde`][docs:intellij-platform-gradle-plugin-runIde] IntelliJ Platform Gradle Plugin task. Use the *Debug* icon for plugin debugging.                                        |
-| Run Tests           | Runs [`:check`][gradle:lifecycle-tasks] Gradle task.                                                                                                                                |
-| Run Verifications   | Runs [`:verifyPlugin`][docs:intellij-platform-gradle-plugin-verifyPlugin] IntelliJ Platform Gradle Plugin task to check the plugin compatibility against the specified IntelliJ IDEs. |
+## 本地运行
 
-> [!NOTE]
-> You can find the logs from the running task in the `idea.log` tab.
+Windows：
 
-## Publishing the plugin
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
+.\gradlew.bat runIde
+```
 
-> [!TIP]
-> Make sure to follow all guidelines listed in [Publishing a Plugin][docs:publishing] to follow all recommended and required steps.
+macOS / Linux：
 
-Releasing a plugin to [JetBrains Marketplace](https://plugins.jetbrains.com) is a straightforward operation that uses the `publishPlugin` Gradle task provided by the [intellij-platform-gradle-plugin][docs:intellij-platform-gradle-plugin-docs].
+```bash
+./gradlew runIde
+```
 
-You can also upload the plugin to the [JetBrains Plugin Repository](https://plugins.jetbrains.com/plugin/upload) manually via UI.
+## 构建插件
 
-## Useful links
+Windows：
 
-- [IntelliJ Platform SDK Plugin SDK][docs]
-- [IntelliJ Platform Gradle Plugin Documentation][docs:intellij-platform-gradle-plugin-docs]
-- [IntelliJ Platform Explorer][jb:ipe]
-- [JetBrains Marketplace Quality Guidelines][jb:quality-guidelines]
-- [IntelliJ Platform UI Guidelines][jb:ui-guidelines]
-- [JetBrains Marketplace Paid Plugins][jb:paid-plugins]
-- [IntelliJ SDK Code Samples][gh:code-samples]
+```powershell
+.\gradlew.bat buildPlugin
+```
 
-[docs]: https://plugins.jetbrains.com/docs/intellij
-[docs:plugin.xml]: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html?from=IJPluginReadmeFile
-[docs:publishing]: https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginReadmeFile
-[docs:intellij-platform-gradle-plugin-docs]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html?from=IJPluginReadmeFile
-[docs:intellij-platform-gradle-plugin-runIde]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html?from=IJPluginReadmeFile#runIde
-[docs:intellij-platform-gradle-plugin-verifyPlugin]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html?from=IJPluginReadmeFile#verifyPlugin
-[docs:logo]: https://plugins.jetbrains.com/docs/intellij/plugin-icon-file.html?from=IJPluginReadmeFile
-[docs:target-version]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html?from=IJPluginReadmeFile#target-versions
-[docs:testing]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html?from=IJPluginReadmeFile#testing
+macOS / Linux：
 
-[file:build.gradle.kts]: ./build.gradle.kts
-[file:CHANGELOG.md]: ./CHANGELOG.md
-[file:gradle.properties]: ./gradle.properties
-[file:plugin.xml]: ./src/main/resources/META-INF/plugin.xml
+```bash
+./gradlew buildPlugin
+```
 
-[gh:code-samples]: https://github.com/JetBrains/intellij-sdk-code-samples
+构建产物位于 `build/distributions/`。
 
-[gradle:lifecycle-tasks]: https://docs.gradle.org/current/userguide/java_plugin.html#lifecycle_tasks
+## 项目结构
 
-[jb:github]: https://github.com/JetBrains/.github/blob/main/profile/README.md
-[jb:forum]: https://platform.jetbrains.com/
-[jb:quality-guidelines]: https://plugins.jetbrains.com/docs/marketplace/quality-guidelines.html
-[jb:paid-plugins]: https://plugins.jetbrains.com/docs/marketplace/paid-plugins-marketplace.html
-[jb:ipe]: https://jb.gg/ipe
-[jb:ui-guidelines]: https://jetbrains.github.io/ui
+```text
+src/main/kotlin/
+├── FormatJsonAction.kt          Alt+K 动作与编辑器/终端选区读取
+├── FormatCurrentJsonAction.kt   输入框右键格式化动作
+├── CopyJsonAction.kt            输入框右键一键复制动作
+├── JsonFormatter.kt             普通 JSON 与转义 JSON 解析、格式化
+├── JsonToolWindowFactory.kt     右侧工具窗入口
+├── JsonToolWindowService.kt     JSON 编辑器、语法配色、结构折叠与一键复制
+├── MinifyJsonAction.kt          结果框右键单行压缩动作
+└── MyMessageBundle.kt           国际化消息读取
+
+src/main/resources/
+├── META-INF/plugin.xml          插件、工具窗和快捷键注册
+├── META-INF/pluginIcon*.png     插件 Logo
+├── icons/autoJson*.png          工具窗 Logo
+└── messages/                    界面文本
+```
+
+## 主要配置
+
+- Gradle Group：`cn.uliang`
+- 插件 ID：`cn.uliang.Auto-Json`
+- 插件名称：`Auto-Json`
+- 工具窗 ID：`JsonAssistant`
+- 默认快捷键：`Alt+K`

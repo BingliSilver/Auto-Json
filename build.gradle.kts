@@ -19,3 +19,14 @@ dependencies {
         // bundledPlugin("com.intellij.java")
     }
 }
+
+intellijPlatform {
+    pluginConfiguration {
+        ideaVersion {
+            // 以实际编译使用的 2025.3.5 构建号作为最低版本，避免向更旧平台错误开放安装。
+            sinceBuild = "253.33514.17"
+            // 262.* 覆盖 IDEA 2026.2.1（262.9437.185）以及同系列后续补丁版本。
+            untilBuild = "262.*"
+        }
+    }
+}
