@@ -1,18 +1,19 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
-    <id>cn.uliang.Auto-Json</id>
+    <id>com.LazeroX.Auto-Json</id>
 
     <!-- Public plugin name should be written in Title Case.
      Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
     <name>Auto-Json</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor>uliang</vendor>
+    <vendor>LazeroX</vendor>
 
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager. -->
     <description><![CDATA[
-        在 IDEA 右侧工具窗中输入并格式化 JSON，也可以通过快捷键将代码或终端日志中
+        Auto-Json is a JSON assistant for IntelliJ IDEA that formats, minifies, sorts, folds, and copies JSON in a right-side tool window.<br>
+        支持在 IDEA 右侧工具窗中输入并格式化 JSON，也可以通过快捷键将代码或终端日志中
         选中的 JSON 格式化后输出到工具窗，方便开发过程中快速校验、阅读和复制 JSON。<br>
         默认快捷键：<code>Alt+K</code>
         ]]></description>
@@ -29,31 +30,31 @@
         <!-- anchor="right" 保证 JSON 工具窗默认显示在 IDEA 右侧栏。 -->
         <toolWindow id="JsonAssistant"
                     anchor="right"
-                    factoryClass="cn.uliang.JsonToolWindowFactory"
-                    icon="/icons/autoJson.png"/>
+                    factoryClass="com.LazeroX.JsonToolWindowFactory"
+                    icon="/icons/autoJson.svg"/>
     </extensions>
 
     <actions>
         <!-- JSON 工具窗编辑器使用的专属右键菜单，不影响 IDEA 的其他代码编辑器。 -->
-        <group id="cn.uliang.JsonEditorPopup" text="Auto-Json Editor Menu">
-            <action id="cn.uliang.FormatCurrentJsonAction"
-                    class="cn.uliang.FormatCurrentJsonAction"
+        <group id="com.LazeroX.JsonEditorPopup" text="Auto-Json Editor Menu">
+            <action id="com.LazeroX.FormatCurrentJsonAction"
+                    class="com.LazeroX.FormatCurrentJsonAction"
                     text="格式化 JSON"
                     description="格式化当前输入框中的完整 JSON"/>
-            <action id="cn.uliang.CopyJsonAction"
-                    class="cn.uliang.CopyJsonAction"
+            <action id="com.LazeroX.CopyJsonAction"
+                    class="com.LazeroX.CopyJsonAction"
                     text="一键复制"
                     description="复制当前输入框中的完整 JSON"/>
             <separator/>
-            <action id="cn.uliang.MinifyJsonAction"
-                    class="cn.uliang.MinifyJsonAction"
+            <action id="com.LazeroX.MinifyJsonAction"
+                    class="com.LazeroX.MinifyJsonAction"
                     text="Minify JSON"
                     description="将当前 JSON 压缩为单行文本"/>
         </group>
 
         <!-- 动作同时支持代码编辑器、运行控制台和终端日志中的当前选区。 -->
-        <action id="cn.uliang.FormatJsonAction"
-                class="cn.uliang.FormatJsonAction"
+        <action id="com.LazeroX.FormatJsonAction"
+                class="com.LazeroX.FormatJsonAction"
                 text="格式化 JSON 到侧边栏"
                 description="将代码或终端日志中选中的 JSON 格式化到右侧工具窗">
             <add-to-group group-id="ToolsMenu" anchor="last"/>

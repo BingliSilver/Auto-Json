@@ -1,4 +1,4 @@
-package cn.uliang
+package com.LazeroX
 
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent

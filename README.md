@@ -164,8 +164,8 @@ src/main/resources/
 
 ## 主要配置
 
-- Gradle Group：`cn.uliang`
-- 插件 ID：`cn.uliang.Auto-Json`
+- Gradle Group：`com.LazeroX`
+- 插件 ID：`com.LazeroX.Auto-Json`
 - 插件名称：`Auto-Json`
 - 工具窗 ID：`JsonAssistant`
 - 默认快捷键：`Alt+K`

@@ -1,4 +1,4 @@
-package cn.uliang
+package com.LazeroX
 
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project

@@ -1,4 +1,4 @@
-package cn.uliang
+package com.LazeroX
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
@@ -53,7 +53,7 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
         const val TOOL_WINDOW_ID = "JsonAssistant"
 
         /** plugin.xml 中注册的 JSON 编辑器专属右键菜单组标识。 */
-        private const val JSON_EDITOR_POPUP_GROUP_ID = "cn.uliang.JsonEditorPopup"
+        private const val JSON_EDITOR_POPUP_GROUP_ID = "com.LazeroX.JsonEditorPopup"
 
         // 自定义着色放在语法层之上，确保颜色不会被编辑器默认文本属性覆盖。
         private const val JSON_HIGHLIGHT_LAYER = HighlighterLayer.SYNTAX + 1
