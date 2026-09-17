@@ -5,7 +5,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
 
 /**
- * 处理 JSON 工具窗编辑器右键菜单中的一键复制操作。
+ * 处理 JSON 工具窗顶部工具栏中的一键复制操作。
  */
 internal class CopyJsonAction : AnAction() {
     /**
@@ -23,7 +23,7 @@ internal class CopyJsonAction : AnAction() {
      * @param event IDEA 动作系统提供的项目上下文
      */
     override fun actionPerformed(event: AnActionEvent) {
-        // 服务内部会处理空内容并在工具窗底部展示提示，此处只负责转发菜单动作。
+        // 服务内部会处理空内容，此处只负责把工具栏动作转发给项目级服务。
         val project = event.project ?: return
         project.service<JsonToolWindowService>().copyCurrentText()
     }

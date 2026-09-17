@@ -35,22 +35,22 @@
     </extensions>
 
     <actions>
-        <!-- JSON 工具窗编辑器使用的专属右键菜单，不影响 IDEA 的其他代码编辑器。 -->
-        <group id="com.LazeroX.JsonEditorPopup" text="Auto-Json Editor Menu">
-            <action id="com.LazeroX.FormatCurrentJsonAction"
-                    class="com.LazeroX.FormatCurrentJsonAction"
-                    text="格式化 JSON"
-                    description="格式化当前输入框中的完整 JSON"/>
-            <action id="com.LazeroX.CopyJsonAction"
-                    class="com.LazeroX.CopyJsonAction"
-                    text="一键复制"
-                    description="复制当前输入框中的完整 JSON"/>
-            <separator/>
-            <action id="com.LazeroX.MinifyJsonAction"
-                    class="com.LazeroX.MinifyJsonAction"
-                    text="Minify JSON"
-                    description="将当前 JSON 压缩为单行文本"/>
-        </group>
+        <!-- JSON 工具窗顶部工具栏动作；只注册动作本身，不再加入编辑器右键菜单。 -->
+        <action id="com.LazeroX.FormatCurrentJsonAction"
+                class="com.LazeroX.FormatCurrentJsonAction"
+                text="格式化 JSON"
+                description="格式化当前输入框中的完整 JSON"
+                icon="AllIcons.Actions.ReformatCode"/>
+        <action id="com.LazeroX.CopyJsonAction"
+                class="com.LazeroX.CopyJsonAction"
+                text="一键复制"
+                description="复制当前输入框中的完整 JSON"
+                icon="AllIcons.Actions.Copy"/>
+        <action id="com.LazeroX.MinifyJsonAction"
+                class="com.LazeroX.MinifyJsonAction"
+                text="Minify JSON"
+                description="将当前 JSON 压缩为单行文本"
+                icon="AllIcons.Actions.PrettyPrint"/>
 
         <!-- 动作同时支持代码编辑器、运行控制台和终端日志中的当前选区。 -->
         <action id="com.LazeroX.FormatJsonAction"

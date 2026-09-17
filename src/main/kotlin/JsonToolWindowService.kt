@@ -17,6 +17,8 @@ import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.editor.event.CaretEvent
+import com.intellij.openapi.editor.event.CaretListener
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
@@ -52,8 +54,14 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
         /** plugin.xml 中注册的工具窗唯一标识。 */
         const val TOOL_WINDOW_ID = "JsonAssistant"
 
-        /** plugin.xml 中注册的 JSON 编辑器专属右键菜单组标识。 */
-        private const val JSON_EDITOR_POPUP_GROUP_ID = "com.LazeroX.JsonEditorPopup"
+        /** plugin.xml 中注册的工具窗格式化动作标识。 */
+        private const val FORMAT_CURRENT_JSON_ACTION_ID = "com.LazeroX.FormatCurrentJsonAction"
+
+        /** plugin.xml 中注册的工具窗复制动作标识。 */
+        private const val COPY_JSON_ACTION_ID = "com.LazeroX.CopyJsonAction"
+
+        /** plugin.xml 中注册的工具窗压缩动作标识。 */
+        private const val MINIFY_JSON_ACTION_ID = "com.LazeroX.MinifyJsonAction"
 
         // 自定义着色放在语法层之上，确保颜色不会被编辑器默认文本属性覆盖。
         private const val JSON_HIGHLIGHT_LAYER = HighlighterLayer.SYNTAX + 1
@@ -113,12 +121,19 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
         }
         setPlaceholder(MyMessageBundle.message("json.toolwindow.input.placeholder"))
         setShowPlaceholderWhenFocused(true)
-        // 使用插件专属菜单组，让格式化、复制和压缩操作只出现在右侧 JSON 编辑器中。
-        setContextMenuGroupId(JSON_EDITOR_POPUP_GROUP_ID)
     }
 
     // 只记录本服务创建的着色范围，刷新时不会影响编辑器自身的选区与搜索高亮。
     private val syntaxHighlighters = mutableListOf<RangeHighlighter>()
+
+    // 括号配对同时保存两个方向，使光标位于开始或结束括号时都能常量时间定位另一端。
+    private var delimiterPairs: Map<Int, Int> = emptyMap()
+
+    // 配对结果只适用于同一文档版本，防止异步刷新前使用已经失效的括号偏移量。
+    private var delimiterPairsModificationStamp = -1L
+
+    // 匹配括号高亮独立管理，移动光标时无需重建整篇 JSON 的语法颜色。
+    private val matchedDelimiterHighlighters = mutableListOf<RangeHighlighter>()
 
     // 保存本轮扫描识别出的字符串子 JSON，供光标位置判断和 Alt+Enter 意图动作使用。
     private var nestedJsonStrings: List<NestedJsonString> = emptyList()
@@ -139,6 +154,18 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
              */
             override fun documentChanged(event: DocumentEvent) {
                 scheduleDecorationRefresh()
+            }
+        }, this)
+
+        // 轻量 EditorEx 没有 PSI 括号匹配能力，因此在光标移动后按预先扫描的配对结果刷新高亮。
+        jsonEditor.caretModel.addCaretListener(object : CaretListener {
+            /**
+             * 光标位置变化时高亮当前 JSON 括号及其匹配项。
+             *
+             * @param event IDEA 编辑器产生的光标移动事件
+             */
+            override fun caretPositionChanged(event: CaretEvent) {
+                refreshMatchedDelimiterHighlight()
             }
         }, this)
 
@@ -347,6 +374,9 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
      */
     override fun dispose() {
         syntaxHighlighters.clear()
+        matchedDelimiterHighlighters.clear()
+        delimiterPairs = emptyMap()
+        delimiterPairsModificationStamp = -1L
         nestedJsonStrings = emptyList()
         if (!jsonEditor.isDisposed) {
             EditorFactory.getInstance().releaseEditor(jsonEditor)
@@ -359,26 +389,31 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
      * @return 使用边界布局、能随工具窗尺寸变化自动伸缩的根面板
      */
     private fun createContent(): JComponent {
-        val sortToolbar = createSortToolbar()
+        val operationToolbar = createOperationToolbar()
 
         return JBPanel<JBPanel<*>>(BorderLayout()).apply {
-            // 顶部使用 IDEA 原生小图标工具栏，底部不再创建状态提示区域。
+            // 顶部集中放置 JSON 操作与排序按钮，避免功能入口继续占用编辑器右键菜单。
             border = JBUI.Borders.empty(8)
-            add(sortToolbar, BorderLayout.NORTH)
+            add(operationToolbar, BorderLayout.NORTH)
             // EditorEx 自带滚动条与 gutter，不再额外包裹 Swing ScrollPane。
             add(jsonEditor.component, BorderLayout.CENTER)
         }
     }
 
     /**
-     * 创建与 IDEA 内置工具窗一致的小图标排序工具栏。
+     * 创建与 IDEA 内置工具窗一致的 JSON 操作工具栏。
      *
-     * ActionToolbar 会统一处理按钮尺寸、悬停背景和 Tooltip；自定义图标只用于清晰区分
-     * A-Z 与 Z-A 两种方向，避免不同平台版本内置图标语义不一致。
+     * 格式化、复制和压缩动作复用 plugin.xml 中注册的动作，确保工具栏入口与原业务方法保持一致；
+     * 排序动作继续使用专属图标，清晰区分 A-Z 与 Z-A 两种方向。
      *
-     * @return 包含升序、降序两个图标动作的横向工具栏组件
+     * @return 包含格式化、复制、压缩以及升降序按钮的横向工具栏组件
      */
-    private fun createSortToolbar(): JComponent {
+    private fun createOperationToolbar(): JComponent {
+        val actionManager = ActionManager.getInstance()
+        // 三个动作均由当前插件描述文件注册；缺失代表插件配置损坏，应在创建工具窗时立即暴露。
+        val formatAction = requireNotNull(actionManager.getAction(FORMAT_CURRENT_JSON_ACTION_ID))
+        val copyAction = requireNotNull(actionManager.getAction(COPY_JSON_ACTION_ID))
+        val minifyAction = requireNotNull(actionManager.getAction(MINIFY_JSON_ACTION_ID))
         val ascendingAction = object : DumbAwareAction(
             MyMessageBundle.message("json.sort.ascending.tooltip"),
             MyMessageBundle.message("json.sort.ascending.tooltip"),
@@ -408,11 +443,16 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
             }
         }
         val actionGroup = DefaultActionGroup().apply {
+            // 常用内容操作放在最前方，顺序与原右键菜单保持一致，降低入口迁移后的使用成本。
+            add(formatAction)
+            add(copyAction)
+            add(minifyAction)
+            addSeparator()
             add(ascendingAction)
             add(descendingAction)
         }
-        val toolbar = ActionManager.getInstance().createActionToolbar(
-            "AutoJson.SortToolbar",
+        val toolbar = actionManager.createActionToolbar(
+            "AutoJson.OperationToolbar",
             actionGroup,
             true
         )
@@ -452,6 +492,10 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
         clearSyntaxHighlighters()
         nestedJsonStrings = applyJsonSyntaxColors(jsonText)
         applyNestedJsonWarnings(nestedJsonStrings)
+        // 文档变化会让旧偏移量失效，先重建配对关系，再按变化后的光标位置恢复匹配高亮。
+        delimiterPairs = findJsonDelimiterPairs(jsonText)
+        delimiterPairsModificationStamp = jsonDocument.modificationStamp
+        refreshMatchedDelimiterHighlight()
         rebuildJsonFoldRegions(jsonText)
     }
 
@@ -596,6 +640,112 @@ internal class JsonToolWindowService(private val project: Project) : Disposable 
             textAttributes,
             HighlighterTargetArea.EXACT_RANGE
         )
+    }
+
+    /**
+     * 扫描 JSON 文本并建立花括号、方括号的双向配对关系。
+     *
+     * 字符串中的括号属于 value 内容，不参与结构匹配；输入尚未完成或类型不一致的括号
+     * 不会产生配对，避免把光标引向错误的结构边界。
+     *
+     * @param jsonText 当前编辑器中的完整 JSON 文本
+     * @return 以任一括号偏移量为 key、其匹配括号偏移量为 value 的映射
+     */
+    private fun findJsonDelimiterPairs(jsonText: String): Map<Int, Int> {
+        val openingDelimiters = ArrayDeque<OpeningDelimiter>()
+        val pairs = mutableMapOf<Int, Int>()
+        var inString = false
+        var escaped = false
+
+        jsonText.forEachIndexed { offset, currentChar ->
+            if (inString) {
+                when {
+                    // 被反斜杠转义的字符不具备结束字符串或参与括号匹配的语义。
+                    escaped -> escaped = false
+                    currentChar == '\\' -> escaped = true
+                    currentChar == '"' -> inString = false
+                }
+                return@forEachIndexed
+            }
+
+            when (currentChar) {
+                '"' -> inString = true
+                '{', '[' -> openingDelimiters.addLast(OpeningDelimiter(currentChar, offset))
+                '}', ']' -> {
+                    if (openingDelimiters.isEmpty()) {
+                        return@forEachIndexed
+                    }
+
+                    val openingDelimiter = openingDelimiters.peekLast()
+                    val expectedOpeningCharacter = if (currentChar == '}') '{' else '['
+                    // 只消费类型一致的栈顶括号，保证嵌套层级与 JSON 结构完全对应。
+                    if (openingDelimiter.character != expectedOpeningCharacter) {
+                        return@forEachIndexed
+                    }
+
+                    openingDelimiters.removeLast()
+                    // 同时记录两个方向，让开始括号和结束括号都能直接找到对端。
+                    pairs[openingDelimiter.offset] = offset
+                    pairs[offset] = openingDelimiter.offset
+                }
+            }
+        }
+        return pairs
+    }
+
+    /**
+     * 根据当前光标位置刷新成对 JSON 括号的高亮。
+     *
+     * IDEA 光标位于字符边界：移动到括号前时偏移量指向括号，刚输入括号后偏移量则
+     * 指向下一字符。因此先检查当前位置，再检查前一位置，覆盖键盘输入和鼠标定位两种场景。
+     */
+    private fun refreshMatchedDelimiterHighlight() {
+        clearMatchedDelimiterHighlighters()
+        // 文档监听采用异步合并刷新；版本不一致时等待新配对结果，绝不使用旧偏移量绘制。
+        if (delimiterPairsModificationStamp != jsonDocument.modificationStamp) {
+            return
+        }
+        val jsonText = jsonDocument.text
+        val delimiterOffset = findDelimiterOffsetAtCaret(jsonText) ?: return
+        val matchedOffset = delimiterPairs[delimiterOffset] ?: return
+        val matchedBraceAttributes = jsonEditor.colorsScheme
+            .getAttributes(CodeInsightColors.MATCHED_BRACE_ATTRIBUTES)
+
+        // 两端使用同一主题属性，使当前括号与远端匹配括号形成清晰、对称的视觉提示。
+        listOf(delimiterOffset, matchedOffset).forEach { offset ->
+            matchedDelimiterHighlighters += jsonEditor.markupModel.addRangeHighlighter(
+                offset,
+                offset + 1,
+                HighlighterLayer.ELEMENT_UNDER_CARET,
+                matchedBraceAttributes,
+                HighlighterTargetArea.EXACT_RANGE
+            )
+        }
+    }
+
+    /**
+     * 查找当前光标所指向的 JSON 结构括号。
+     *
+     * @param jsonText 当前编辑器中的完整 JSON 文本
+     * @return 光标处或光标前已配对括号的偏移量；没有命中时返回 null
+     */
+    private fun findDelimiterOffsetAtCaret(jsonText: String): Int? {
+        val caretOffset = jsonEditor.caretModel.offset
+        // 优先选择光标右侧字符，符合鼠标把插入点放到某个符号“上”的直觉。
+        if (caretOffset < jsonText.length && delimiterPairs.containsKey(caretOffset)) {
+            return caretOffset
+        }
+        val previousOffset = caretOffset - 1
+        // 光标刚输入并越过括号时，回看左侧字符即可保持高亮立即可见。
+        return previousOffset.takeIf { offset -> offset >= 0 && delimiterPairs.containsKey(offset) }
+    }
+
+    /**
+     * 移除上一次光标位置创建的匹配括号高亮。
+     */
+    private fun clearMatchedDelimiterHighlighters() {
+        matchedDelimiterHighlighters.forEach(jsonEditor.markupModel::removeHighlighter)
+        matchedDelimiterHighlighters.clear()
     }
 
     /**
