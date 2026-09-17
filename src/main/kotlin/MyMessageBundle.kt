@@ -1,4 +1,4 @@
-package cn.uliang
+package com.LazeroX
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.Nls
