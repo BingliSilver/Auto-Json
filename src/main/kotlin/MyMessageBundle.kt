@@ -1,4 +1,4 @@
-package com.lianluoyi
+package cn.uliang
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.Nls

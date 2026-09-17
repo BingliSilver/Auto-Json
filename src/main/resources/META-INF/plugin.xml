@@ -1,20 +1,20 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
-    <id>com.lianluoyi.Auto-Json</id>
+    <id>cn.uliang.Auto-Json</id>
 
     <!-- Public plugin name should be written in Title Case.
      Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
     <name>Auto-Json</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor url="https://www.yourcompany.com">YourCompany</vendor>
+    <vendor>uliang</vendor>
 
-    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
-         Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager. -->
     <description><![CDATA[
-        Enter short description for your plugin here.<br>
-        <em>most HTML tags may be used</em>
+        在 IDEA 右侧工具窗中输入并格式化 JSON，也可以通过快捷键将代码或终端日志中
+        选中的 JSON 格式化后输出到工具窗，方便开发过程中快速校验、阅读和复制 JSON。<br>
+        默认快捷键：<code>Alt+K</code>
         ]]></description>
 
     <!-- Product and plugin compatibility requirements.
@@ -26,8 +26,39 @@
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MyToolWindow" factoryClass="com.lianluoyi.MyToolWindowFactory"
-                    icon="AllIcons.Toolwindows.ToolWindowPalette"/>
+        <!-- anchor="right" 保证 JSON 工具窗默认显示在 IDEA 右侧栏。 -->
+        <toolWindow id="JsonAssistant"
+                    anchor="right"
+                    factoryClass="cn.uliang.JsonToolWindowFactory"
+                    icon="/icons/autoJson.png"/>
     </extensions>
+
+    <actions>
+        <!-- JSON 工具窗编辑器使用的专属右键菜单，不影响 IDEA 的其他代码编辑器。 -->
+        <group id="cn.uliang.JsonEditorPopup" text="Auto-Json Editor Menu">
+            <action id="cn.uliang.FormatCurrentJsonAction"
+                    class="cn.uliang.FormatCurrentJsonAction"
+                    text="格式化 JSON"
+                    description="格式化当前输入框中的完整 JSON"/>
+            <action id="cn.uliang.CopyJsonAction"
+                    class="cn.uliang.CopyJsonAction"
+                    text="一键复制"
+                    description="复制当前输入框中的完整 JSON"/>
+            <separator/>
+            <action id="cn.uliang.MinifyJsonAction"
+                    class="cn.uliang.MinifyJsonAction"
+                    text="Minify JSON"
+                    description="将当前 JSON 压缩为单行文本"/>
+        </group>
+
+        <!-- 动作同时支持代码编辑器、运行控制台和终端日志中的当前选区。 -->
+        <action id="cn.uliang.FormatJsonAction"
+                class="cn.uliang.FormatJsonAction"
+                text="格式化 JSON 到侧边栏"
+                description="将代码或终端日志中选中的 JSON 格式化到右侧工具窗">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="alt K"/>
+        </action>
+    </actions>
 
 </idea-plugin>
